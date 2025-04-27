@@ -3,6 +3,6 @@
 
 void cchat_startclient(int argc, char **argv)
 {
-    if (argc < 3)
+    if (argc < 4)
         cchat_logger_fatal(1, "Usage: %s c <port> <password>\n", argv[0]);
 }
