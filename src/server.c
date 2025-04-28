@@ -1,4 +1,5 @@
 #include "server.h"
+#include "cchat_utils.h"
 #include "logger.h"
 #include <ncurses.h>
 #include <stdint.h>
@@ -20,31 +21,27 @@ void cchat_startserver(int argc, char **argv)
 
     cchat_logger_log("[Server Setup]\n");
     cchat_logger_log("Starting server on port: %s\n", argv[2]);
-    cchat_logger_log("Password: \x1b[1m\x1b[4m%s\x1b[0m\n", password);
-    cchat_logger_log("Press Enter to start server...\n");
-
-    getchar();
 
     initscr();
     raw();
     noecho();
 
     clear();
-    printw("\n\n");
+    printw("\n");
     printw("Press 'p' to toggle password\n");
     printw("Press 'q' to quit server\n\n");
     printw("Port: %s\n", argv[2]);
 
-    printw("Status: Listening for connections...\n");
+    printw("Waiting for connection...\n");
     refresh();
 
     uint8_t server_running = 1;
     uint8_t password_visible = 0;
+    uint8_t connected = 0;
 
-    while (server_running)
+    while (!connected)
     {
-        int ch = getch();
-        switch (ch)
+        switch (getch())
         {
         case 'p':
             if (!password_visible)
@@ -72,6 +69,20 @@ void cchat_startserver(int argc, char **argv)
         default:
             break;
         }
+    }
+
+    while (server_running)
+    {
+        switch (getch())
+        {
+        case CCHAT_CTRL('e'):
+            server_running = 0;
+            break;
+        }
+
+        clear();
+        printw("Press 'ctrl+e to quit server\n\n");
+        refresh();
     }
 
     endwin();
