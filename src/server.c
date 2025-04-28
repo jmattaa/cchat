@@ -85,7 +85,9 @@ char *generate_pass_for_server()
 #define PASS_LENGTH 32
     char *pass = malloc(PASS_LENGTH);
 
-    srand(time(NULL));
+    struct timespec ts;
+    timespec_get(&ts, TIME_UTC);
+    srand(ts.tv_nsec);
     for (int i = 0; i < PASS_LENGTH - 1; i++)
         pass[i] = 'a' + rand() % 26;
     pass[PASS_LENGTH - 1] = '\0';
