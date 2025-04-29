@@ -8,7 +8,7 @@
 #include <string.h>
 #include <time.h>
 
-char *generate_pass_for_server();
+static char *generate_pass_for_server();
 
 void cchat_startserver(int argc, char **argv)
 {
@@ -82,7 +82,7 @@ void cchat_startserver(int argc, char **argv)
         }
 
         clear();
-        printw("Press 'ctrl+e to quit server\n\n");
+        printw("Press 'ctrl+e to quit cchat\n\n");
         refresh();
     }
 
@@ -92,7 +92,7 @@ void cchat_startserver(int argc, char **argv)
     cchat_logger_log("[Server Shutdown] Server has been stopped.\n");
 }
 
-char *generate_pass_for_server()
+static char *generate_pass_for_server()
 {
 #define PASS_LENGTH 32
     char *pass = malloc(PASS_LENGTH);
