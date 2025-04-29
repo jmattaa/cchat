@@ -63,8 +63,9 @@ void cchat_startserver(int argc, char **argv)
             break;
 
         case 'q':
-            server_running = 0;
-            break;
+            connected = 1; // stop this loop
+            server_running = 0; // skip next loop
+            break; 
 
         default:
             break;
