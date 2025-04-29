@@ -23,7 +23,7 @@ int main(int argc, char **argv)
                        argv[0]);
 
     cchat_logger_error("To join a server, use:\n"
-                       "\t\x1b[1m%s c <port>\x1b[0m\n",
+                       "\t\x1b[1m%s c <host> <port>\x1b[0m\n",
                        argv[0]);
     return 1;
 }
