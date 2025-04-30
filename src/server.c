@@ -1,7 +1,6 @@
 #include "server.h"
 #include "cchat_utils.h"
 #include "logger.h"
-#include <ncurses.h>
 #include <netinet/in.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -17,9 +16,12 @@ void cchat_startserver(int argc, char **argv)
         cchat_logger_fatal(1, "Usage: %s s <port>\n", argv[0]);
 
 #define port argv[2]
+    int portnum = atoi(port);
+    if (portnum <= 0 || portnum > 65535)
+        cchat_logger_fatal(1, "Invalid port number: %s\n", port);
 
     cchat_logger_log("[Server Setup]\n");
-    cchat_logger_log("Starting server on port: %s\n", port);
+    cchat_logger_log("Starting server on port: %d\n", portnum);
 
     int sockfd = socket(AF_INET, SOCK_STREAM, 0);
     int client_sockfd = -1;
@@ -31,7 +33,7 @@ void cchat_startserver(int argc, char **argv)
     struct sockaddr_in addr;
     addr.sin_family = AF_INET;
     addr.sin_addr.s_addr = INADDR_ANY;
-    addr.sin_port = htons(atoi(port));
+    addr.sin_port = htons(portnum);
 
     if (bind(sockfd, (struct sockaddr *)&addr, sizeof(addr)) < 0)
     {
@@ -59,13 +61,13 @@ void cchat_startserver(int argc, char **argv)
     cchat_logger_log("[Server Setup] Connection accepted\n");
 
     char buf[1024];
-    int bytes_read = read(client_sockfd, buf, sizeof(buf) - 1);
-    if (bytes_read < 0)
+    int n = read(client_sockfd, buf, sizeof(buf) - 1);
+    if (n < 0)
     {
         cchat_logger_error("Failed to read from client\n");
         goto cleanup;
     }
-    buf[bytes_read] = '\0';
+    buf[n] = '\0';
 
     // I'm too proud of this shi cuz if you try to connect from like a browser
     // you'll get the invalid tingy and it's 🔥
@@ -82,79 +84,64 @@ void cchat_startserver(int argc, char **argv)
     // msg
     cchat_logger_log("[Server Setup] Connection authenticated\n");
 
-    initscr();
-    raw();
-    noecho();
-    nodelay(stdscr, TRUE);
-
-    refresh();
-
-    fd_set read_fds;
-    int max_fd = (client_sockfd > STDIN_FILENO) ? client_sockfd : STDIN_FILENO;
-    struct timeval tv;
+    fd_set fds;
+    char msg[1024];
 
     uint8_t server_running = 1;
     while (server_running)
     {
-        clear();
-        mvprintw(0, 0, "Press 'ctrl+e' to quit cchat\n\n");
-        refresh();
+        FD_ZERO(&fds);
+        FD_SET(STDIN_FILENO, &fds);
+        FD_SET(client_sockfd, &fds);
 
-        FD_ZERO(&read_fds);
-        FD_SET(client_sockfd, &read_fds);
-        FD_SET(STDIN_FILENO, &read_fds);
+        if (select(client_sockfd + 1, &fds, NULL, NULL, NULL) < 0)
+            break;
 
-        tv.tv_sec = 1;
-        tv.tv_usec = 0;
-
-        int activity = select(max_fd + 1, &read_fds, NULL, NULL, &tv);
-
-        if (activity < 0)
+        if (FD_ISSET(client_sockfd, &fds))
         {
-            cchat_logger_error("Select error\n");
-            goto closewin;
-        }
-
-        if (FD_ISSET(client_sockfd, &read_fds))
-        {
-            bytes_read = read(client_sockfd, buf, sizeof(buf) - 1);
-            if (bytes_read < 0)
+            buf[0] = '\0';
+            n = read(client_sockfd, buf, sizeof(buf) - 1);
+            if (n < 0)
             {
-                cchat_logger_error("Failed to read from client\n");
-                goto closewin;
-            }
-            else if (bytes_read > 0)
-            {
-                buf[bytes_read] = '\0';
-                printw("%s\n", buf);
-
-                if (strncmp(buf, CCHAT_DISCONNECT_MSG,
-                            strlen(CCHAT_DISCONNECT_MSG)) == 0)
-                {
-                    server_running = 0;
-                }
-            }
-        }
-
-        if (FD_ISSET(STDIN_FILENO, &read_fds))
-        {
-            switch (getch())
-            {
-            case CCHAT_CTRL('e'):
+                cchat_logger_error("Failed to receive message\n");
                 server_running = 0;
                 break;
-            default:
+            }
+            if (n == 0)
+            {
+                cchat_logger_error("Client disconnected\n");
+                server_running = 0;
+                break;
+            }
+
+            buf[n] = '\0';
+
+            printf("other: %s", buf);
+        }
+
+        if (FD_ISSET(STDIN_FILENO, &fds))
+        {
+            n = read(STDIN_FILENO, msg, sizeof(msg) - 1);
+            if (n <= 0)
+                break;
+
+            if (msg[0] == '\n' || msg[0] == '\r')
+                continue;
+
+            msg[n] = '\0';
+            if (send(client_sockfd, msg, n, 0) < 0)
+            {
+                cchat_logger_error("Failed to send message\n");
+                server_running = 0;
                 break;
             }
         }
     }
-closewin:
-    endwin();
 
 cleanup:
-    if (client_sockfd < 0)
+    if (client_sockfd >= 0)
         close(client_sockfd);
-    if (sockfd < 0)
+    if (sockfd >= 0)
         close(sockfd);
 
     cchat_logger_log("[Server Shutdown] Server has been stopped.\n");
